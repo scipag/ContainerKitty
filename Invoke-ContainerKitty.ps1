@@ -247,7 +247,18 @@
         $TempFileName = [System.IO.Path]::GetTempFileName()
 
         $Parts = $ReportContentRaw -split "}`r`n{"
-        Set-Content -Value ("["+$Parts[0]+","+$Parts[1]+"]") -Path $TempFileName        
+
+        If ($Parts.Count -eq 1) {
+            Set-Content -Value ("["+$Parts[0]+","+$Parts[1]+"]") -Path $TempFileName
+        }
+        ElseIf ($Parts.Count -eq 2) {
+            $SubParts = $Parts[1] -split "}`r`n\["
+            Set-Content -Value ("["+$Parts[0]+"},{"+$SubParts[0]+"},["+$SubParts[1]+"]") -Path $TempFileName
+        }
+        Else {
+            Write-ProtocolEntry -Text "JSON differs from the expected format in file $ReportFile, please open an issue" -LogLevel "Error"
+            Continue            
+        }
 
         try {
             $ReportContent = Get-Content -Path $TempFileName | ConvertFrom-Json
@@ -307,7 +318,7 @@
     #
     # Start Main
     #
-    $ContainerKittyVersion = "0.2.0-1623130424"
+    $ContainerKittyVersion = "0.2.1-1646672942"
 
     If ($Log -and $LogFile.Length -eq 0) {
         $FileDate = Get-Date -Format yyyyMMdd-HHmm

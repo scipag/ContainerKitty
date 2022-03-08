@@ -253,7 +253,20 @@
         }
         ElseIf ($Parts.Count -eq 2) {
             $SubParts = $Parts[1] -split "}`r`n\["
-            Set-Content -Value ("["+$Parts[0]+"},{"+$SubParts[0]+"},["+$SubParts[1]+"]") -Path $TempFileName
+
+            If ($SubParts.Count -eq 1) {
+                Set-Content -Value ("["+$Parts[0]+"},{"+$SubParts[0]+"]") -Path $TempFileName
+            }
+            ElseIf ($SubParts.Count -eq 2) {
+                Set-Content -Value ("["+$Parts[0]+"},{"+$SubParts[0]+"},["+$SubParts[1]+"]") -Path $TempFileName
+            }
+            Else {
+                Write-ProtocolEntry -Text "JSON differs from the expected format in file $ReportFile, please open an issue" -LogLevel "Error"
+            }
+        }
+        ElseIf ($Parts.Count -eq 3) {
+            $SubParts = $Parts[2] -split "}`r`n\["
+            Set-Content -Value ("["+$Parts[0]+"},{"+$Parts[1]+"},{"+$SubParts[0]+"},["+$SubParts[1]+"]") -Path $TempFileName
         }
         Else {
             Write-ProtocolEntry -Text "JSON differs from the expected format in file $ReportFile, please open an issue" -LogLevel "Error"
@@ -318,7 +331,7 @@
     #
     # Start Main
     #
-    $ContainerKittyVersion = "0.2.1-1646672942"
+    $ContainerKittyVersion = "0.2.1-1646751589"
 
     If ($Log -and $LogFile.Length -eq 0) {
         $FileDate = Get-Date -Format yyyyMMdd-HHmm

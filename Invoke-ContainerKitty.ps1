@@ -248,7 +248,7 @@
         #
         $ImageNameFull = $ReportItem.Name.split("_")
         $ImageName = $ImageNameFull[0]+"/"+$ImageNameFull[1]+"/"+$ImageNameFull[2]
-        $ImageTag = $ImageNameFull[3].split("-")[0]
+        $ImageTag = $ImageNameFull[3].split("_")[0]
 
         #
         # Build Export
@@ -280,7 +280,7 @@
     #
     # Start Main
     #
-    $ContainerKittyVersion = "0.3.0-1690374286"
+    $ContainerKittyVersion = "0.3.0-1690436931"
 
     If ($Log -and $LogFile.Length -eq 0) {
         $FileDate = Get-Date -Format yyyyMMdd-HHmm
@@ -397,14 +397,14 @@
 
         ForEach($Image in $Images) {
 
-            $ImageName = $Image.split(":")
-            $ImageName = $ImageName[0]
-            $ImageTag = $ImageName[1]
+            $ImageNameFull = $Image.split(":")
+            $ImageName = $ImageNameFull[0]
+            $ImageTag = $ImageNameFull[1]
 
             $ReportDate = Get-Date -Format yyyyMMdd-HHmm
             $ReportFile = $ImageName -replace "/", "_"
             $ReportFile += "_$ImageTag"
-            $ReportFile += "-$ReportDate.json"
+            $ReportFile += "_$ReportDate.json"
 
             # Load Docker
             Write-ProtocolEntry -Text "Start pulling container image $Image" -LogLevel "Info"

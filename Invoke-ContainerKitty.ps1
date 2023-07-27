@@ -26,11 +26,11 @@
 
     .PARAMETER BuildListOutput
 
-        Definition of the path and name of the list of container images.      
+        Definition of the path and name of the list of container images.
 
     .PARAMETER BuildBaseUrl
 
-        The basic URL for the GitLab repository, for example https://gitlab.example.org    
+        The basic URL for the GitLab repository, for example https://gitlab.example.org
 
     .PARAMETER BuildId
 
@@ -39,7 +39,7 @@
 
     .PARAMETER BuildIdType
 
-        Definition of the used Id type, this can be a group, user or project id. 
+        Definition of the used Id type, this can be a group, user or project id.
 
     .PARAMETER Scan
 
@@ -48,7 +48,7 @@
 
     .PARAMETER ScanInputFile
 
-        Definition of the path and name of the list with container images.        
+        Definition of the path and name of the list with container images.
 
     .PARAMETER ReportDirectory
 
@@ -66,13 +66,13 @@
 
     .PARAMETER LogFile
 
-        Define name and path of the log file.       
+        Define name and path of the log file.
 
     .EXAMPLE
 
         Build a list of containers for user number five:
         Invoke-ContainerKitty -BuildList -BuildBaseUrl https://gitlab.example.org -BuildId 5 -BuildIdType User
-        
+
         Scan all targes in list targets.txt and write a log:
         Invoke-ContainerKitty -Scan -ScanInputFile C:\tmp\targets.txt -ReportDirectory C:\tmp\results -Log
 
@@ -99,7 +99,7 @@
 
         # Base URL from GitLab
         [String]
-        $BuildBaseUrl,     
+        $BuildBaseUrl,
 
         # Id on GitLab
         [String]
@@ -108,7 +108,7 @@
         # Choose the type of the Id
         [ValidateSet("User","Group","Project")]
         [String]
-        $BuildIdType = "Project",        
+        $BuildIdType = "Project",
 
         # Scan a list of container images
         [Switch]
@@ -123,7 +123,7 @@
         [ValidateScript({Test-Path $_})]
         [String]
         $ReportDirectory = "C:\tmp\results",
- 
+
          # Extract information of the scan output file and report vulnerabilites
         [Switch]
         $Report = $false,
@@ -145,15 +145,15 @@
 
         <#
         .SYNOPSIS
-    
+
             Output of an event with timestamp and different formatting
             depending on the level. If the Log parameter is set, the
             output is also stored in a file.
-        #>    
+        #>
 
         [CmdletBinding()]
         Param (
-            
+
             [String]
             $Text,
 
@@ -172,10 +172,10 @@
             "Notime"  { $Message = "[*] $Text"; Write-Host -ForegroundColor Gray $Message; Break}
             Default   { $Message = "[*] $Time - $Text"; Write-Host $Message; }
         }
-    
+
         If ($Log) {
             Add-ProtocolEntry -Text $Message
-        }       
+        }
     }
 
     Function Add-ProtocolEntry {
@@ -187,19 +187,19 @@
             depending on the level. If the Log parameter is set, the
             output is also stored in a file.
         #>
-    
+
         [CmdletBinding()]
         Param (
-            
+
             [String]
             $Text
-        )     
+        )
 
         try {
             Add-Content -Path $LogFile -Value $Text -ErrorAction Stop
         } catch {
             Write-ProtocolEntry -Text "Error while writing log entries into $LogFile. Aborting..." -LogLevel "Error"
-            Break            
+            Break
         }
     }
 
@@ -211,10 +211,10 @@
             The result of the test is saved in a CSV file with the retrieved
             value, the severity level and the recommended value.
         #>
-    
+
         [CmdletBinding()]
         Param (
-            
+
             [String]
             $Text
         )
@@ -223,7 +223,7 @@
             Add-Content -Path $ContainerKittyReportFile -Value $Text -ErrorAction Stop
         } catch {
             Write-ProtocolEntry -Text "Error while writing the result into $ContainerKittyReportFile. Aborting..." -LogLevel "Error"
-            Break            
+            Break
         }
     }
 
@@ -231,107 +231,56 @@
 
         <#
         .SYNOPSIS
-    
+
             The JSON file from Docker is parsed using PowerShell
             and the vulnerabilities are evaluated and written to a CSV.
-
         #>
 
-        #
-        # The JSON file from the Docker Scan Engine cannot be parsed,
-        # so the following workaround is necessary.
-        #
-
-        $ReportContentRaw = Get-Content -Path $ReportFile
-        $ReportContentRaw = Get-Content -Raw -Path $ReportFile
-        $TempFileName = [System.IO.Path]::GetTempFileName()
-
-        $Parts = $ReportContentRaw -split "}`r`n{"
-
-        If ($Parts.Count -eq 1) {
-            Set-Content -Value ("["+$Parts[0]+","+$Parts[1]+"]") -Path $TempFileName
-        }
-        ElseIf ($Parts.Count -eq 2) {
-            $SubParts = $Parts[1] -split "}`r`n\["
-
-            If ($SubParts.Count -eq 1) {
-                Set-Content -Value ("["+$Parts[0]+"},{"+$SubParts[0]+"]") -Path $TempFileName
-            }
-            ElseIf ($SubParts.Count -eq 2) {
-                Set-Content -Value ("["+$Parts[0]+"},{"+$SubParts[0]+"},["+$SubParts[1]+"]") -Path $TempFileName
-            }
-            Else {
-                Write-ProtocolEntry -Text "JSON differs from the expected format in file $ReportFile, please open an issue" -LogLevel "Error"
-            }
-        }
-        ElseIf ($Parts.Count -eq 3) {
-            $SubParts = $Parts[2] -split "}`r`n\["
-            Set-Content -Value ("["+$Parts[0]+"},{"+$Parts[1]+"},{"+$SubParts[0]+"},["+$SubParts[1]+"]") -Path $TempFileName
-        }
-        Else {
-            Write-ProtocolEntry -Text "JSON differs from the expected format in file $ReportFile, please open an issue" -LogLevel "Error"
-            Continue            
-        }
-
         try {
-            $ReportContent = Get-Content -Path $TempFileName | ConvertFrom-Json
+            $ReportContent = Get-Content -Raw -Path $ReportFile | ConvertFrom-Json
         } catch {
             Write-ProtocolEntry -Text "Error during JSON parsing of file $ReportFile" -LogLevel "Error"
             Continue
         }
 
         #
-        # Output Summary
+        # Get image name
         #
-        [String] $Message = "$($ReportContent.name) (Tag: $($ReportContent.version)): $($ReportContent.summary) / Unique count: $($ReportContent.uniqueCount)"
-
-        If ($ReportContent.ok -eq $True) {
-
-            Write-ProtocolEntry -Text $Message -LogLevel "Success"
-        }
-        Else {
-
-            Write-ProtocolEntry -Text $Message -LogLevel "Error"
-        }
+        $ImageNameFull = $ReportItem.Name.split("_")
+        $ImageName = $ImageNameFull[0]+"/"+$ImageNameFull[1]+"/"+$ImageNameFull[2]
+        $ImageTag = $ImageNameFull[3].split("-")[0]
 
         #
         # Build Export
         #
-        ForEach ($Vulnerability in $ReportContent.vulnerabilities) {
-            
+        ForEach ($Vulnerability in $ReportContent.runs.tool.driver.rules) {
+
             $OutputId = $global:VulnerabilityId
             $OutputIdSnyk = $Vulnerability.id
-            $OutputImage = $ReportContent.name
-            $OutputImageVersion = $ReportContent.version
-            $OutputPackageName = $Vulnerability.packageName
-            $OutputPackageVersion = $Vulnerability.version
-            $OutputTitle = $Vulnerability.title
-            $OutputSeverity = $Vulnerability.severity
-            $OutputDescription = $Vulnerability.description -replace "`n|`r"
-            $OutputDescription = $OutputDescription -replace '"', '""'
-            $OutputCountermeasure = "Fixed Version: $($Vulnerability.nearestFixedInVersion)"
-            $OutputUpgradable = $Vulnerability.isUpgradable
-            $OutputPatchable = $Vulnerability.isPatchable
-            $OutputCvssScore = $Vulnerability.cvssScore
-            $OutputCvss3 = $Vulnerability.CVSSv3
-
-            $OutputReference = ""
-            ForEach ($Reference in $Vulnerability.references) {
-                $OutputReference += "$($Reference.url);"
-            }
+            $OutputImage = $ImageName
+            $OutputImageVersion = $ImageTag
+            $OutputPackageName = ""
+            $OutputPackageVersion = ""
+            $OutputTitle = $Vulnerability.shortDescription.text
+            $OutputSeverity = $Vulnerability.properties.cvssV3_severity
+            $OutputDescription = $Vulnerability.help.text -replace "`n|`r"
+            $OutputCountermeasure = "Fixed Version: $($Vulnerability.properties.fixed_Version)"
+            $OutputUpgradable = ""
+            $OutputPatchable = ""
+            $OutputCvssScore = $Vulnerability.properties.cvssV3_vector
+            $OutputCvss3 = $Vulnerability.properties.cvssV3
+            $OutputReference = $Vulnerability.helpUri
 
             $Message = '"'+$OutputId+'","'+$OutputIdSnyk+'","'+$OutputImage+'","'+$OutputImageVersion+'","'+$OutputPackageName+'","'+$OutputPackageVersion+'","'+$OutputTitle+'","'+$OutputSeverity+'","'+$OutputDescription+'","'+$OutputCountermeasure+'","'+$OutputUpgradable+'","'+$OutputPatchable+'","'+$OutputCvssScore+'","'+$OutputCvss3+'","'+$OutputReference+'"'
             Add-ResultEntry -Text $Message
             $global:VulnerabilityId++
-        }        
-
-        Remove-Item $TempFileName
+        }
     }
 
     #
     # Start Main
     #
-    $ContainerKittyVersion = "0.2.1-1646751589"
+    $ContainerKittyVersion = "0.3.0-1690374286"
 
     If ($Log -and $LogFile.Length -eq 0) {
         $FileDate = Get-Date -Format yyyyMMdd-HHmm
@@ -344,7 +293,7 @@
     Write-Output "`n"
     Write-Output "      =^._.^="
     Write-Output "     _(      )/  ContainerKitty $ContainerKittyVersion"
-    Write-Output "`n"    
+    Write-Output "`n"
     Write-ProtocolEntry -Text "Starting ContainerKitty" -LogLevel "Info"
 
     #
@@ -358,7 +307,7 @@
         If ($BuildListOutput.Length -eq 0) {
             $FileDate = Get-Date -Format yyyyMMdd-HHmm
             $BuildListOutput = ".\containerkitty_container_list-$FileDate.txt"
-        }       
+        }
 
         # Get PrivateToken through built-in function Get-Credential
         Write-ProtocolEntry -Text "ContainerKitty needs a private token to build the container list. This token will not be stored." -LogLevel "Info"
@@ -389,7 +338,7 @@
 
                  $Projects = $IwrProjects.Content | ConvertFrom-Json
                  Foreach ($Project in $Projects) {
-            
+
                     $ProjectId = $Project.id
                     $UriContainerRegistryRepositories = "$BuildBaseUrl/api/v4/projects/$ProjectId/registry/repositories?tags=0&tags_count=true"
                     $IwrRepositories = Invoke-WebRequest -UserAgent $UserAgent -Headers @{"PRIVATE-TOKEN" = $PrivateToken} -Uri $UriContainerRegistryRepositories
@@ -397,8 +346,8 @@
                     If ($IwrRepositories.StatusCode -eq 200 -and $IwrRepositories.Content -ne "") {
 
                         $Repositories = $IwrRepositories.Content | ConvertFrom-Json
-                
-                        Foreach ($Repository in $Repositories) {                                        
+
+                        Foreach ($Repository in $Repositories) {
                             Add-Content -Value $Repository.location -Path $BuildListOutput
                         }
                     }
@@ -412,7 +361,7 @@
                 Write-ProtocolEntry -Text "Error in a API call" -LogLevel "Error"
                 Break
             }
-        } 
+        }
         ElseIf ($BuildIdType -eq "Project") {
 
             $ProjectId = $BuildId
@@ -422,8 +371,8 @@
             If ($IwrRepositories.StatusCode -eq 200 -and $IwrRepositories.Content -ne "") {
 
                 $Repositories = $IwrRepositories.Content | ConvertFrom-Json
-        
-                Foreach ($Repository in $Repositories) {                                        
+
+                Foreach ($Repository in $Repositories) {
                     Add-Content -Value $Repository.location -Path $BuildListOutput
                 }
             }
@@ -437,7 +386,7 @@
     }
 
     If ($Scan) {
-   
+
         # If a list is to be built and a scan is to be executed at the same time,
         # the new list can be taken if nothing else has been defined
         If ($ScanInputFile.Length -eq 0 -and $BuildList) {
@@ -450,9 +399,11 @@
 
             $ImageName = $Image.split(":")
             $ImageName = $ImageName[0]
+            $ImageTag = $ImageName[1]
 
             $ReportDate = Get-Date -Format yyyyMMdd-HHmm
             $ReportFile = $ImageName -replace "/", "_"
+            $ReportFile += "_$ImageTag"
             $ReportFile += "-$ReportDate.json"
 
             # Load Docker
@@ -468,21 +419,21 @@
             } Else {
                 Write-ProtocolEntry -Text "Error during pulling container image $Image" -LogLevel "Error"
                 Continue
-            }            
+            }
 
             # Scan Docker
             Write-ProtocolEntry -Text "Start scanning container image $Image" -LogLevel "Info"
             Try {
-                docker scan --dependency-tree --json $Image > "$ReportDirectory\$ReportFile"
+                docker scout cves $Image --format sarif > "$ReportDirectory\$ReportFile"
             } catch {
                     Write-ProtocolEntry -Text "Error during scanning container image $Image" -LogLevel "Error"
-                    Continue                
+                    Continue
             }
             Write-ProtocolEntry -Text "Scanning container image $Image done" -LogLevel "Info"
         }
     }
-    
-    If ($Report) {        
+
+    If ($Report) {
 
         If ($ContainerKittyReportFile.Length -eq 0) {
             $FileDate = Get-Date -Format yyyyMMdd-HHmm
@@ -490,7 +441,7 @@
         }
 
         Write-ProtocolEntry -Text "Start creating the report $ContainerKittyReportFile" -LogLevel "Info"
-					
+
         # Write Header
         $Message = '"Id","IdSnyk","Image","ImageVersion","PackageName","PackageVersion","Title","Severity","Description","Countermeasure","Upgradable","Patchable","CVSS Score","CVSSv3","Reference"'
         Add-ResultEntry -Text $Message
@@ -502,7 +453,7 @@
         $global:VulnerabilityId = 1
 
         ForEach ($ReportItem in $Reports) {
-        
+
             $ReportFile = $ReportItem.Fullname
             Parse-Report
         }
